@@ -2,6 +2,7 @@ package dev.alexcoss.services;
 
 import dev.alexcoss.models.Person;
 import dev.alexcoss.repositories.PeopleRepository;
+import dev.alexcoss.util.Roles;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,7 @@ public class RegistrationService {
     public void register(Person person) {
         String encode = passwordEncoder.encode(person.getPassword());
         person.setPassword(encode);
-        person.setRole("ROLE_USER");
+        person.setRole(Roles.USER.getRole());
 
         peopleRepository.save(person);
     }

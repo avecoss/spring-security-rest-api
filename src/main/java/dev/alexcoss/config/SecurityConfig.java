@@ -4,19 +4,18 @@ import dev.alexcoss.services.PersonDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -24,41 +23,33 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final PersonDetailsService personDetailsService;
+    private final JWTFilter jwtFilter;
 
     @Autowired
-    public SecurityConfig(PersonDetailsService personDetailsService) {
+    public SecurityConfig(PersonDetailsService personDetailsService, JWTFilter jwtFilter) {
         this.personDetailsService = personDetailsService;
+        this.jwtFilter = jwtFilter;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                /*.csrf(csrf -> csrf.disable())*/
-                .authorizeHttpRequests((authorize) ->
-                        authorize
-                                .requestMatchers("/admin").hasRole("ADMIN")
-                                .requestMatchers("/auth/login", "/error").permitAll()
-                                .requestMatchers("/auth/registration").permitAll()
-                                //.anyRequest().authenticated())
-                                .anyRequest().hasAnyRole("USER", "ADMIN"))
-                .formLogin(formLogin ->
-                        formLogin
-                                .loginPage("/auth/login")
-                                .loginProcessingUrl("/process_login")
-                                .defaultSuccessUrl("/hello", true)
-                                .failureUrl("/auth/login?error"))
-                .logout(logout ->
-                        logout
-                                .logoutUrl("/logout")
-                                .logoutSuccessUrl("/auth/login"));
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(authorize ->
+                authorize
+                    .requestMatchers("/api/users", "/api/change_role").hasRole("ADMIN")
+                    .requestMatchers("/api/auth/login", "/error").permitAll()
+                    .requestMatchers("/api/auth/registration").permitAll()
+                    //.anyRequest().authenticated())
+                    .anyRequest().hasAnyRole("USER", "ADMIN"))
+            .sessionManagement(sessionManagement ->
+                sessionManagement
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
-/*    @Bean
-    public UserDetailsService userDetailsService() {
-        return personDetailsService;
-    }*/
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
@@ -68,32 +59,13 @@ public class SecurityConfig {
         return authProvider;
     }
 
-
-/*    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return NoOpPasswordEncoder.getInstance();
-    }*/
-
-
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-
-/*    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests().requestMatchers("/**").hasRole("USER").and().formLogin();
-        return http.build();
-    }*/
-
-/*    @Bean
-    public UserDetailsService userDetailsService() {
-        UserDetails user = User.withDefaultPasswordEncoder()
-                .username("user")
-                .password("password")
-                .roles("USER")
-                .build();
-        return new InMemoryUserDetailsManager(user);
-    }*/
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
 }
